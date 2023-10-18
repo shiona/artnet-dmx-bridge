@@ -8,6 +8,7 @@
 #include "nvs_flash.h"
 
 #include "common.h"
+#include "artnet.h"
 #include "dmxtask.h"
 #include "wifitask.h"
 #include "servertask.h"
@@ -29,7 +30,8 @@ void app_main(void)
 
     dmx_task_start();
     wifi_task_start();
-    server_task_start();
+    //server_task_start();
+    artnet_task_start();
 
     while(1)
     {

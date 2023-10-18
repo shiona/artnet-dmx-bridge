@@ -60,13 +60,31 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
+static void set_static_ip(esp_netif_t *sta)
+{
+    esp_netif_dhcpc_stop(sta);
+
+    esp_netif_ip_info_t ip_info;
+
+    // 192.168.50.229
+    IP4_ADDR(&ip_info.ip, 192, 168, 50, 229);
+    IP4_ADDR(&ip_info.gw, 192, 168, 50, 1);
+    IP4_ADDR(&ip_info.netmask, 255, 255, 255, 0);
+
+    esp_netif_set_ip_info(sta, &ip_info);
+}
+
+
 static void wifi_start()
 {
     s_wifi_event_group = xEventGroupCreate();
 
     ESP_ERROR_CHECK(esp_netif_init());
 
-    esp_netif_create_default_wifi_sta();
+    //esp_netif_create_default_wifi_sta();
+    esp_netif_t *sta = esp_netif_create_default_wifi_sta();
+
+    //set_static_ip(sta);
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
