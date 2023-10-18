@@ -1,0 +1,7 @@
+need esp-idf, locally installed at ~/opt/esp-idf.
+run
+. ~/opt/esp-idf/export.sh
+to set environment
+run
+idf.py [menuconfig | build | flash | monitor] (can run multiple one after another)
+

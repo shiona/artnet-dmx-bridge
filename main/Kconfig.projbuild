@@ -1,0 +1,66 @@
+menu "On Air Configuration"
+
+    config LED_PIN
+        int "LED pin"
+        range 0 33
+        default 13
+        help
+            GPIO pin number that's connected to LED control. (The x in GPIO_NUM_x)
+
+    config LED_STRIP_LENGTH
+        int "Led count"
+        range 1 100
+        help
+            Number of leds to control
+
+    config LEDS_PER_ROUND
+        int "Led count per revolution"
+        range 1 100
+        help
+            Number of leds per sine wave in an effect (modify and see the effect).
+            Same number as in LED_STRIP_LENGTH is a safe choice.
+
+    config ESP_WIFI_SSID
+        string "WiFi SSID"
+        default "myssid"
+        help
+            SSID (network name) to connect to.
+
+    config ESP_WIFI_PASSWORD
+        string "WiFi Password"
+        default "mypassword"
+        help
+            WiFi password (WPA or WPA2).
+
+    config ESP_MAXIMUM_RETRY
+        int "Maximum retry"
+        default 5
+        help
+            Set the Maximum retry to avoid station reconnecting to the AP unlimited when the AP is really inexistent.
+
+    config SERVER_PORT
+        int "Port"
+        range 0 65535
+        default 7777
+        help
+            Local port the example server will listen on.
+
+    config SERVER_KEEPALIVE_IDLE
+        int "TCP keep-alive idle time(s)"
+        default 5
+        help
+            Keep-alive idle time. In idle time without receiving any data from peer, will send keep-alive probe packet
+
+    config SERVER_KEEPALIVE_INTERVAL
+        int "TCP keep-alive interval time(s)"
+        default 5
+        help
+            Keep-alive probe packet interval time.
+
+    config SERVER_KEEPALIVE_COUNT
+        int "TCP keep-alive packet retry send counts"
+        default 3
+        help
+            Keep-alive probe packet retry count.
+
+endmenu
