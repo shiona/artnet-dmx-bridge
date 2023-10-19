@@ -34,23 +34,36 @@ static int s_retry_num = 0;
 
 extern enum state_ state;
 
+static bool ap = false; // AP or STA
+static bool connected = false;
+
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
 {
+    ESP_LOGI(TAG, "WIFI EVENT");
     if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        ESP_LOGI(TAG, "connecting");
-        state = STATE_CONNECTING;
-        esp_wifi_connect();
-    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
+        if (ap) {
+            ESP_LOGI(TAG, "AP started");
+        } else {
+            ESP_LOGI(TAG, "connecting");
+            state = STATE_CONNECTING;
+            esp_wifi_connect();
+        }
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED
+            && connected) {
         if (s_retry_num < WIFI_CONN_MAXIMUM_RETRY) {
             esp_wifi_connect();
             s_retry_num++;
             ESP_LOGI(TAG, "retry to connect to the AP");
         } else {
+            connected = false;
             state = STATE_DISCONNECTED;
             xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
         }
         ESP_LOGI(TAG,"failed to connect");
+    } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_CONNECTED) {
+        ESP_LOGI(TAG, "connected, fetching ip");
+        connected = true;
     } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
         ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
         ESP_LOGI(TAG, "got ip: " IPSTR, IP2STR(&event->ip_info.ip));
@@ -59,6 +72,9 @@ static void event_handler(void* arg, esp_event_base_t event_base,
         xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
     }
 }
+
+void wifi_restart(void);
+
 
 static void set_static_ip(esp_netif_t *sta)
 {
@@ -75,7 +91,7 @@ static void set_static_ip(esp_netif_t *sta)
 }
 
 
-static void wifi_start()
+static void wifi_start(void)
 {
     s_wifi_event_group = xEventGroupCreate();
 
@@ -84,7 +100,7 @@ static void wifi_start()
     //esp_netif_create_default_wifi_sta();
     esp_netif_t *sta = esp_netif_create_default_wifi_sta();
 
-    //set_static_ip(sta);
+    set_static_ip(sta);
 
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&cfg));
@@ -109,7 +125,7 @@ static void wifi_start()
             /* Setting a password implies station will connect to all security modes including WEP/WPA.
              * However these modes are deprecated and not advisable to be used. Incase your Access point
              * doesn't support WPA2, these mode can be enabled by commenting below line */
-	     .threshold.authmode = WIFI_AUTH_WPA2_PSK,
+            .threshold.authmode = WIFI_AUTH_WPA2_PSK,
 
             .pmf_cfg = {
                 .capable = true,
@@ -122,6 +138,38 @@ static void wifi_start()
     ESP_ERROR_CHECK(esp_wifi_start() );
 
     ESP_LOGI(TAG, "wifi_init_sta finished.");
+    //wifi_restart();
+}
+
+void wifi_restart(void)
+{
+    ESP_LOGI(TAG, "Stopping wifi\n");
+    ESP_ERROR_CHECK(esp_wifi_stop());
+
+    esp_netif_t* wifiAP = esp_netif_create_default_wifi_ap();
+
+    esp_netif_ip_info_t ipInfo;
+    IP4_ADDR(&ipInfo.ip, 192,168,1,1);
+    IP4_ADDR(&ipInfo.gw, 0,0,0,0); // do not advertise as a gateway router
+    IP4_ADDR(&ipInfo.netmask, 255,255,255,0);
+    esp_netif_dhcps_stop(wifiAP);
+    esp_netif_set_ip_info(wifiAP, &ipInfo);
+    esp_netif_dhcps_start(wifiAP);
+
+    wifi_config_t wifi_config = {
+        .ap = {
+            .ssid = "esp32artnet",
+            .ssid_len = 11,
+            .password = "MattiJaTeppo",
+            .channel = 6,
+            .max_connection = 3,
+            .authmode = WIFI_AUTH_WPA_WPA2_PSK
+        }
+    };
+    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_AP));
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &wifi_config));
+    ESP_LOGI(TAG, "Starting wifi as AP\n");
+    ESP_ERROR_CHECK(esp_wifi_start());
 }
 
 
@@ -145,7 +193,7 @@ void wifi_worker(void * bogus_param)
             ESP_LOGE(TAG, "UNEXPECTED EVENT");
         }
         xEventGroupClearBits(s_wifi_event_group, WIFI_CONNECTED_BIT | WIFI_FAIL_BIT);
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
     /* The worker will never quit, so the event handlers are are not deregistered */
 }

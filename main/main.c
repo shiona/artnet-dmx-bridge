@@ -12,6 +12,7 @@
 #include "dmxtask.h"
 #include "wifitask.h"
 #include "servertask.h"
+#include "clitask.h"
 
 enum state_ state;
 
@@ -32,6 +33,7 @@ void app_main(void)
     wifi_task_start();
     //server_task_start();
     artnet_task_start();
+    cli_task_start();
 
     while(1)
     {

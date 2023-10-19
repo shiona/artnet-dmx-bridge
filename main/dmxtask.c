@@ -79,6 +79,7 @@ static void dmx_worker(void *bogus_param)
     setup_uart();
     dmx_update_semaphore = xSemaphoreCreateMutexStatic( &dmx_update_mutex_buffer );
 
+    xSemaphoreGive(dmx_update_semaphore);
 
     while(true) {
         //dmx_buffer[101]++; // Overeflow ok
@@ -87,7 +88,12 @@ static void dmx_worker(void *bogus_param)
         //ESP_LOGI(TAG, "sending: %d", dmx_buffer[101]);
         //    uint8_t start_code = 0x00;
 
-        xSemaphoreTake(dmx_update_semaphore, portMAX_DELAY);
+        if (xSemaphoreTake(dmx_update_semaphore, portMAX_DELAY) != pdTRUE)
+        {
+            ESP_LOGW(TAG, "Unable to take semaphore at buffer swap");
+            //continue;
+        }
+
         if(dmx_swap_request)
         {
             dmx_visible_layer ^= 0x01;
@@ -96,7 +102,10 @@ static void dmx_worker(void *bogus_param)
         xSemaphoreGive(dmx_update_semaphore);
 
         // wait till uart is ready
-        uart_wait_tx_done(DMX_UART_NUM, 1000);
+        if (uart_wait_tx_done(DMX_UART_NUM, 1000) != ESP_OK) {
+            ESP_LOGW(TAG, "TX not done yet");
+            continue;
+        }
         // set line to inverse, creates break signal
         dmx_buffer[dmx_visible_layer][0] = 0x00;
 
@@ -117,9 +126,7 @@ static void dmx_worker(void *bogus_param)
         //uart_write_bytes(DMX_UART_NUM, (const char*) dmx_buffer[dmx_visible_layer]+1, 512);
 //critical section
         //gpio_set_level(DMX_DEBUG_PIN, 1);
-        //xSemaphoreTake(dmx_update_semaphore, portMAX_DELAY);
         uart_write_bytes(DMX_UART_NUM,  dmx_buffer[dmx_visible_layer], dmx_transmit_size);
-        //xSemaphoreGive(dmx_update_semaphore);
         taskEXIT_CRITICAL(&dmx_transmit_spinlock);
         //gpio_set_level(DMX_DEBUG_PIN, 0);
         vTaskDelay(pdMS_TO_TICKS(DMX_UPDATE_SPEED));
@@ -133,19 +140,32 @@ void dmx_write(size_t channel, uint8_t value)
         ESP_LOGW(TAG, "Write request to invalid DMX channel %d", channel);
         return;
     }
-    xSemaphoreTake(dmx_update_semaphore, portMAX_DELAY);
-    dmx_buffer[0x01 ^ dmx_visible_layer][channel] = value;
-    dmx_swap_request = true;
-    xSemaphoreGive(dmx_update_semaphore);
+    if (xSemaphoreTake(dmx_update_semaphore, portMAX_DELAY) == pdTRUE)
+    {
+        dmx_buffer[0x01 ^ dmx_visible_layer][channel] = value;
+        dmx_swap_request = true;
+        xSemaphoreGive(dmx_update_semaphore);
+    }
+    else
+    {
+        ESP_LOGW(TAG, "Unable to take semaphore at dmx_write");
+    }
+
 }
 
 void dmx_write_multiple(size_t first, uint8_t* values, size_t count)
 {
     assert(first + count <= 513);
-    xSemaphoreTake(dmx_update_semaphore, portMAX_DELAY);
-    memcpy(&dmx_buffer[0x01 ^dmx_visible_layer][first], values, count);
-    dmx_swap_request = true;
-    xSemaphoreGive(dmx_update_semaphore);
+    if (xSemaphoreTake(dmx_update_semaphore, portMAX_DELAY) == pdTRUE)
+    {
+        memcpy(&dmx_buffer[0x01 ^dmx_visible_layer][first], values, count);
+        dmx_swap_request = true;
+        xSemaphoreGive(dmx_update_semaphore);
+    }
+    else
+    {
+        ESP_LOGW(TAG, "Unable to take semaphore at dmx_write_multiple");
+    }
 }
 
 // TODO: Write multiple channels in succession making sure data is not being sent in between
@@ -167,5 +187,6 @@ void dmx_task_start(void)
                   configMAX_PRIORITIES - 1,
                   xStack,
                   &xTaskBuffer,
-                  1);
+                  1
+                  );
 }

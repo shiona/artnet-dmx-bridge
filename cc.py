@@ -2,6 +2,7 @@
 
 import socket
 import time
+#import mido
 
 HOST = "192.168.50.229"  # The server's hostname or IP address
 PORT = 7777  # The port used by the server
@@ -32,7 +33,21 @@ def reset():
         s.connect((HOST, PORT))
         s.sendall(bytes([101, 0]))
 
-reset()
+#def midicontrol():
+#    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+#        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+#        s.connect((HOST, PORT))
+#        with mido.open_input('LPD8 MIDI 1') as inport:
+#            for msg in inport:
+#                if not msg.is_cc():
+#                    continue
+#                print(msg)
+#                channel = msg.control + 100
+#                value = msg.value * 2 # cc's seem to be between 0 and 127
+#                s.sendall(bytes([channel, value]))
+
+#reset()
+#midicontrol()
 input("press enter to ramp up")
 ramp_up();
 input("press enter to ramp down")

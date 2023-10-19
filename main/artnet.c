@@ -178,13 +178,13 @@ void artnet_task_start(void)
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 
-    task_handle = xTaskCreateStaticPinnedToCore(
+    task_handle = xTaskCreateStatic(
             artnet_worker,
             "arnet",
             STACK_SIZE,
             (void*) 0,
             tskIDLE_PRIORITY,
             xStack,
-            &xTaskBuffer,
-            0);
+            &xTaskBuffer
+            );
 }
